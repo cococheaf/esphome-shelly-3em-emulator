@@ -1,0 +1,231 @@
+substitutions:
+  device_name: shellypro3ememu-b90b00
+  meter_publish_interval: 1s
+
+esphome:
+  name: ${device_name}
+  comment: "Shelly Pro 3EM Emulator für SunEnergy XT 500 Pro"
+  friendly_name: Shelly Pro 3EM Emulator
+
+external_components:
+  - source: github://cococheaf/esphome-shelly-3em-emulator@main
+    components: [shelly_pro_3em_emu]
+    refresh: always
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+    sdkconfig_options:
+      CONFIG_HTTPD_WS_SUPPORT: "y"
+      CONFIG_LWIP_MAX_SOCKETS: "16"
+
+logger:
+  level: INFO
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  reboot_timeout: 0s
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+  reboot_timeout: 0s
+
+time:
+  - platform: homeassistant
+    id: ha_clock
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+mdns:
+  services:
+    - service: _http
+      protocol: _tcp
+      port: 80
+      txt:
+        gen: "2"
+    - service: _shelly
+      protocol: _tcp
+      port: 80
+      txt:
+        gen: "2"
+
+mqtt:
+  id: emu_mqtt
+  broker: 0.0.0.0
+  enable_on_boot: false
+  discovery: false
+  discover_ip: false
+  reboot_timeout: 0s
+  log_topic: null
+  birth_message:
+  will_message:
+  shutdown_message:
+
+sensor:
+  - platform: homeassistant
+    id: grid_power
+    entity_id: sensor.solaredge_modbuszahler_ac_power_inverted
+    internal: true
+  - platform: homeassistant
+    id: grid_import_wh
+    entity_id: sensor.solaredge_modbuszahler_imported_kwh
+    internal: true
+    filters:
+      - multiply: 1000
+  - platform: homeassistant
+    id: grid_export_wh
+    entity_id: sensor.solaredge_modbuszahler_exported_kwh
+    internal: true
+    filters:
+      - multiply: 1000
+  - platform: homeassistant
+    id: voltage_l1
+    entity_id: sensor.solaredge_modbuszahler_ac_voltage_an
+    internal: true
+  - platform: homeassistant
+    id: voltage_l2
+    entity_id: sensor.solaredge_modbuszahler_ac_voltage_bn
+    internal: true
+  - platform: homeassistant
+    id: voltage_l3
+    entity_id: sensor.solaredge_modbuszahler_ac_voltage_cn
+    internal: true
+  - platform: homeassistant
+    id: current_l1
+    entity_id: sensor.solaredge_modbuszahler_ac_current_a
+    internal: true
+  - platform: homeassistant
+    id: current_l2
+    entity_id: sensor.solaredge_modbuszahler_ac_current_b
+    internal: true
+  - platform: homeassistant
+    id: current_l3
+    entity_id: sensor.solaredge_modbuszahler_ac_current_c
+    internal: true
+  - platform: homeassistant
+    id: power_l1
+    entity_id: sensor.solaredge_modbuszahler_ac_power_a
+    internal: true
+    filters:
+      - multiply: -1
+  - platform: homeassistant
+    id: power_l2
+    entity_id: sensor.solaredge_modbuszahler_ac_power_b
+    internal: true
+    filters:
+      - multiply: -1
+  - platform: homeassistant
+    id: power_l3
+    entity_id: sensor.solaredge_modbuszahler_ac_power_c
+    internal: true
+    filters:
+      - multiply: -1
+  - platform: homeassistant
+    id: pf_l1
+    entity_id: sensor.solaredge_modbuszahler_ac_pf_a
+    internal: true
+    filters:
+      - multiply: 0.01
+  - platform: homeassistant
+    id: pf_l2
+    entity_id: sensor.solaredge_modbuszahler_ac_pf_b
+    internal: true
+    filters:
+      - multiply: 0.01
+  - platform: homeassistant
+    id: pf_l3
+    entity_id: sensor.solaredge_modbuszahler_ac_pf_c
+    internal: true
+    filters:
+      - multiply: 0.01
+  - platform: homeassistant
+    id: import_l1
+    entity_id: sensor.solaredge_modbuszahler_imported_a_kwh
+    internal: true
+    filters:
+      - multiply: 1000
+  - platform: homeassistant
+    id: import_l2
+    entity_id: sensor.solaredge_modbuszahler_imported_b_kwh
+    internal: true
+    filters:
+      - multiply: 1000
+  - platform: homeassistant
+    id: import_l3
+    entity_id: sensor.solaredge_modbuszahler_imported_c_kwh
+    internal: true
+    filters:
+      - multiply: 1000
+  - platform: homeassistant
+    id: export_l1
+    entity_id: sensor.solaredge_modbuszahler_exported_a_kwh
+    internal: true
+    filters:
+      - multiply: 1000
+  - platform: homeassistant
+    id: export_l2
+    entity_id: sensor.solaredge_modbuszahler_exported_b_kwh
+    internal: true
+    filters:
+      - multiply: 1000
+  - platform: homeassistant
+    id: export_l3
+    entity_id: sensor.solaredge_modbuszahler_exported_c_kwh
+    internal: true
+    filters:
+      - multiply: 1000
+
+shelly_pro_3em_emu:
+  id: shelly_emulator
+  time_id: ha_clock
+  publish_interval: ${meter_publish_interval}
+  total_power: grid_power
+  import_energy: grid_import_wh
+  export_energy: grid_export_wh
+  phases:
+    - voltage: voltage_l1
+      current: current_l1
+      power: power_l1
+      power_factor: pf_l1
+      import_energy: import_l1
+      export_energy: export_l1
+    - voltage: voltage_l2
+      current: current_l2
+      power: power_l2
+      power_factor: pf_l2
+      import_energy: import_l2
+      export_energy: export_l2
+    - voltage: voltage_l3
+      current: current_l3
+      power: power_l3
+      power_factor: pf_l3
+      import_energy: import_l3
+      export_energy: export_l3
+
+button:
+  - platform: restart
+    name: "Shelly Emulator Neustart"
+    icon: mdi:restart
+    entity_category: config
+  - platform: template
+    name: "Shelly Pairing starten"
+    icon: mdi:access-point
+    on_press:
+      - lambda: id(shelly_emulator).start_pairing();
+  - platform: template
+    name: "Shelly Werkseinstellungen (2x drücken)"
+    icon: mdi:restore
+    entity_category: config
+    on_press:
+      - lambda: id(shelly_emulator).press_factory_reset_button();
+
+binary_sensor:
+  - platform: template
+    name: "Shelly Pairing aktiv"
+    icon: mdi:access-point-network
+    lambda: return id(shelly_emulator).pairing_active();
