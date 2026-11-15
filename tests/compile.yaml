@@ -1,0 +1,67 @@
+# Compile-only fixture. Never flash this configuration to a real device.
+esphome:
+  name: shelly-emu-compile-test
+
+external_components:
+  - source: ../components
+    components: [shelly_pro_3em_emu]
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+    sdkconfig_options:
+      CONFIG_HTTPD_WS_SUPPORT: "y"
+      CONFIG_LWIP_MAX_SOCKETS: "16"
+
+logger:
+
+wifi:
+  ssid: compile-only
+  password: compile-only-password
+
+api:
+
+time:
+  - platform: homeassistant
+    id: ha_clock
+
+mqtt:
+  id: emu_mqtt
+  broker: 0.0.0.0
+  enable_on_boot: false
+  discovery: false
+
+sensor:
+  - platform: template
+    id: sample
+    internal: true
+    lambda: return 0.0f;
+    update_interval: 10s
+
+shelly_pro_3em_emu:
+  id: shelly_emulator
+  time_id: ha_clock
+  action_key: compile-only-action-key-123456
+  total_power: sample
+  import_energy: sample
+  export_energy: sample
+  phases:
+    - voltage: sample
+      current: sample
+      power: sample
+      power_factor: sample
+      import_energy: sample
+      export_energy: sample
+    - voltage: sample
+      current: sample
+      power: sample
+      power_factor: sample
+      import_energy: sample
+      export_energy: sample
+    - voltage: sample
+      current: sample
+      power: sample
+      power_factor: sample
+      import_energy: sample
+      export_energy: sample

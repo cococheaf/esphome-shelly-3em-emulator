@@ -184,6 +184,8 @@ shelly_pro_3em_emu:
   id: shelly_emulator
   time_id: ha_clock
   publish_interval: ${meter_publish_interval}
+  stale_after: 5min
+  action_key: !secret emulator_action_key
   total_power: grid_power
   import_energy: grid_import_wh
   export_energy: grid_export_wh

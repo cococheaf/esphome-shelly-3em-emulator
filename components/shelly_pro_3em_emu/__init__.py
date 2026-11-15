@@ -20,6 +20,8 @@ CONF_PHASE_IMPORT_ENERGY = "import_energy"
 CONF_PHASE_EXPORT_ENERGY = "export_energy"
 CONF_PUBLISH_INTERVAL = "publish_interval"
 CONF_TIME_ID = "time_id"
+CONF_ACTION_KEY = "action_key"
+CONF_STALE_AFTER = "stale_after"
 
 emu_ns = cg.esphome_ns.namespace("shelly_pro_3em_emu")
 ShellyPro3EMEmu = emu_ns.class_("ShellyPro3EMEmu", cg.Component)
@@ -43,10 +45,17 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Required(CONF_IMPORT_ENERGY): cv.use_id(sensor.Sensor),
         cv.Required(CONF_EXPORT_ENERGY): cv.use_id(sensor.Sensor),
         cv.Required(CONF_TIME_ID): cv.use_id(time.RealTimeClock),
+        cv.Required(CONF_ACTION_KEY): cv.sensitive(
+            cv.All(cv.string_strict, cv.Length(min=20, max=96))
+        ),
         cv.Required(CONF_PHASES): cv.All(cv.ensure_list(PHASE_SCHEMA), cv.Length(min=3, max=3)),
         cv.Optional(CONF_PUBLISH_INTERVAL, default="1s"): cv.All(
             cv.positive_time_period_milliseconds,
             cv.Range(min=cv.TimePeriod(seconds=1), max=cv.TimePeriod(seconds=60)),
+        ),
+        cv.Optional(CONF_STALE_AFTER, default="5min"): cv.All(
+            cv.positive_time_period_milliseconds,
+            cv.Range(min=cv.TimePeriod(seconds=30), max=cv.TimePeriod(minutes=60)),
         ),
     }
 ).extend(cv.COMPONENT_SCHEMA)
@@ -61,6 +70,8 @@ async def to_code(config):
     cg.add(var.set_import_energy(await cg.get_variable(config[CONF_IMPORT_ENERGY])))
     cg.add(var.set_export_energy(await cg.get_variable(config[CONF_EXPORT_ENERGY])))
     cg.add(var.set_publish_interval(config[CONF_PUBLISH_INTERVAL].total_milliseconds))
+    cg.add(var.set_stale_after(config[CONF_STALE_AFTER].total_milliseconds))
+    cg.add(var.set_action_key(config[CONF_ACTION_KEY]))
     cg.add(var.set_clock(await cg.get_variable(config[CONF_TIME_ID])))
     for index, phase in enumerate(config[CONF_PHASES]):
         for key, method in (

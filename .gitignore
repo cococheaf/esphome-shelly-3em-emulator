@@ -5,3 +5,4 @@ build/
 secrets*.yaml
 *.bin
 *.elf
+tests/.esphome/

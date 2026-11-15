@@ -23,6 +23,8 @@ namespace esphome::shelly_pro_3em_emu {
 
 static constexpr uint32_t SETTINGS_MAGIC = 0x50523345;
 static constexpr uint32_t CRASH_MARKER_MAGIC = 0x43523345;
+static constexpr const char *FW_ID = "20261115/1.1.0-emu";
+static constexpr const char *FW_VERSION = "1.1.0-emu";
 static const char *const TAG = "shelly_pro_3em_emu";
 
 struct CrashMarker {
@@ -144,6 +146,44 @@ bool ShellyPro3EMEmu::valid_(sensor::Sensor *value) {
          value != nullptr && value->has_state() && std::isfinite(value->state);
 }
 
+void ShellyPro3EMEmu::watch_sensor_(sensor::Sensor *value, size_t index) {
+  watched_sensors_[index] = value;
+  if (value != nullptr) {
+    if (value->has_state())
+      sample_received_ms_[index].store(millis() | 1U);
+    value->add_on_state_callback([this, index](float) { sample_received_ms_[index].store(millis() | 1U); });
+  }
+}
+
+uint32_t ShellyPro3EMEmu::sample_age_ms_(sensor::Sensor *value) const {
+  if (!valid_(value))
+    return UINT32_MAX;
+  for (size_t i = 0; i < watched_sensors_.size(); i++) {
+    if (watched_sensors_[i] != value)
+      continue;
+    const uint32_t received = sample_received_ms_[i].load();
+    return received == 0 ? UINT32_MAX : millis() - received;
+  }
+  return UINT32_MAX;
+}
+
+bool ShellyPro3EMEmu::sample_stale_(sensor::Sensor *value) const {
+  return sample_age_ms_(value) > stale_after_ms_;
+}
+
+bool ShellyPro3EMEmu::authorize_action_(httpd_req_t *request) const {
+  char supplied[128]{};
+  if (action_key_.empty() ||
+      httpd_req_get_hdr_value_str(request, "X-Emulator-Key", supplied, sizeof(supplied)) != ESP_OK)
+    return false;
+  const size_t supplied_len = strlen(supplied);
+  unsigned int difference = supplied_len ^ action_key_.size();
+  for (size_t i = 0; i < action_key_.size(); i++)
+    difference |= static_cast<unsigned char>(action_key_[i]) ^
+                  static_cast<unsigned char>(i < supplied_len ? supplied[i] : 0);
+  return difference == 0;
+}
+
 float ShellyPro3EMEmu::value_(sensor::Sensor *value) { return valid_(value) ? value->state : 0.0f; }
 
 void ShellyPro3EMEmu::copy_(char *target, size_t size, const String &value) {
@@ -176,8 +216,8 @@ void ShellyPro3EMEmu::device_info_(JsonObject out) const {
   out["mac"] = mac_();
   out["model"] = "SPEM-003CEBEU";
   out["gen"] = 2;
-  out["fw_id"] = "20261112/1.0.0-emu";
-  out["ver"] = "1.0.0-emu";
+  out["fw_id"] = FW_ID;
+  out["ver"] = FW_VERSION;
   out["app"] = "Pro3EM";
   out["auth_en"] = false;
   out["auth_domain"] = id_();
@@ -290,7 +330,7 @@ void ShellyPro3EMEmu::sys_config_(JsonObject out) const {
   JsonObject device = out["device"].to<JsonObject>();
   device["name"] = "Virtueller Shelly Pro 3EM";
   device["mac"] = mac_();
-  device["fw_id"] = "20261112/1.0.0-emu";
+  device["fw_id"] = FW_ID;
   device["eco_mode"] = false;
   device["profile"] = "triphase";
   device["discoverable"] = true;
@@ -512,6 +552,8 @@ String ShellyPro3EMEmu::dashboard_json_() const {
   doc["ha_connected"] = api::global_api_server != nullptr &&
                         api::global_api_server->is_connected_with_state_subscription();
   doc["measurements_ready"] = source_ready_();
+  doc["measurement_stale"] = sample_stale_(total_power_);
+  doc["stale_after_s"] = stale_after_ms_ / 1000;
   const bool wifi_connected = wifi::global_wifi_component != nullptr &&
                               wifi::global_wifi_component->is_connected();
   doc["wifi_connected"] = wifi_connected;
@@ -582,19 +624,35 @@ String ShellyPro3EMEmu::dashboard_json_() const {
     else
       object[key] = nullptr;
   };
+  auto set_age = [&](JsonObject object, const char *key, sensor::Sensor *sensor) {
+    const uint32_t age = sample_age_ms_(sensor);
+    if (age == UINT32_MAX)
+      object[key] = nullptr;
+    else
+      object[key] = age / 1000;
+  };
   JsonObject root = doc.as<JsonObject>();
   set_number(root, "power", total_power_);
+  set_age(root, "power_age_s", total_power_);
   set_number(root, "import_wh", import_energy_);
+  set_age(root, "import_age_s", import_energy_);
   set_number(root, "export_wh", export_energy_);
+  set_age(root, "export_age_s", export_energy_);
   JsonArray phases = doc["phases"].to<JsonArray>();
   for (const Phase &phase : phases_) {
     JsonObject item = phases.add<JsonObject>();
     set_number(item, "power", phase.power);
+    set_age(item, "power_age_s", phase.power);
     set_number(item, "voltage", phase.voltage);
+    set_age(item, "voltage_age_s", phase.voltage);
     set_number(item, "current", phase.current);
+    set_age(item, "current_age_s", phase.current);
     set_number(item, "pf", phase.power_factor);
+    set_age(item, "pf_age_s", phase.power_factor);
     set_number(item, "import_wh", phase.import_energy);
+    set_age(item, "import_age_s", phase.import_energy);
     set_number(item, "export_wh", phase.export_energy);
+    set_age(item, "export_age_s", phase.export_energy);
   }
   String body;
   serializeJson(doc, body);
@@ -917,6 +975,10 @@ esp_err_t ShellyPro3EMEmu::handle_post_(httpd_req_t *request) {
   if (query_start >= 0)
     uri.remove(query_start);
   record_request_(uri, "POST", 0);
+  if (uri.startsWith("/emu/") && !authorize_action_(request)) {
+    httpd_resp_send_err(request, HTTPD_403_FORBIDDEN, "Invalid emulator action key");
+    return ESP_OK;
+  }
   if (uri == "/emu/pairing") {
     char action[8]{};
     if (httpd_req_get_hdr_value_str(request, "X-Emulator-Action", action, sizeof(action)) != ESP_OK ||
@@ -993,6 +1055,18 @@ esp_err_t ShellyPro3EMEmu::handle_websocket_(httpd_req_t *request) {
 }
 
 void ShellyPro3EMEmu::setup() {
+  size_t watched = 0;
+  watch_sensor_(total_power_, watched++);
+  watch_sensor_(import_energy_, watched++);
+  watch_sensor_(export_energy_, watched++);
+  for (const Phase &phase : phases_) {
+    watch_sensor_(phase.voltage, watched++);
+    watch_sensor_(phase.current, watched++);
+    watch_sensor_(phase.power, watched++);
+    watch_sensor_(phase.power_factor, watched++);
+    watch_sensor_(phase.import_energy, watched++);
+    watch_sensor_(phase.export_energy, watched++);
+  }
   ESP_LOGI(TAG, "Previous reset reason: %s", reset_reason_name(esp_reset_reason()));
   if (rtc_crash_marker.magic == CRASH_MARKER_MAGIC) {
     previous_crash_marker = rtc_crash_marker;

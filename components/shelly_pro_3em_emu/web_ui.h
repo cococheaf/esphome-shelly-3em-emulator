@@ -26,12 +26,17 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;pa
 h1{font-size:32px;line-height:1.12;margin:28px 0 5px;font-weight:650}
 .sub{font-size:14px;color:#9bb0b3;margin:0 0 24px}
 .top{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,1fr);gap:14px}
+.left-column{display:grid;align-content:start;gap:14px;min-width:0}
 .panel{border:1px solid #34444a;border-radius:7px;background:#1b292e}
 .overview{padding:22px;min-width:0}
 .label{color:#aababe;font-size:12px;font-weight:650;text-transform:uppercase}
 .power{font-size:62px;line-height:1.1;font-weight:650;font-variant-numeric:tabular-nums;margin:15px 0 4px;white-space:nowrap}
 .power .unit{font-size:.43em;color:#aababe;margin-left:5px}
 .direction{color:#aababe;font-size:13px;min-height:19px}
+.source-age{color:#8fa2a5;font-size:12px;margin-top:8px}
+.source-age.stale,.direction.stale{color:#efc47f}
+.power.stale{color:#efc47f}
+.stale-value{color:#efc47f!important}
 .totals{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:25px;padding-top:19px;border-top:1px solid #34444a}
 .totals strong{display:block;margin-top:5px;font-size:23px;font-variant-numeric:tabular-nums;font-weight:600}
 .totals .unit{font-size:13px;color:#aababe}
@@ -65,9 +70,22 @@ h1{font-size:32px;line-height:1.12;margin:28px 0 5px;font-weight:650}
 .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px 8px;padding-top:15px;border-top:1px solid #34444a}
 .metric-grid span{display:block;color:#9bb0b3;font-size:11px}
 .metric-grid strong{display:block;margin-top:3px;font-size:14px;font-weight:550;font-variant-numeric:tabular-nums}
+.history,.diagnostics{margin-top:14px;padding:19px 20px}
+.left-column .history{margin-top:0}
+.history-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.history h2,.diagnostics summary{font-size:16px;font-weight:650;margin:0}
+.history-head span,.history-note{color:#8fa2a5;font-size:12px}
+.history canvas{display:block;width:100%;height:150px;margin-top:15px}
+.history-note{margin-top:8px}
+.diagnostics summary{cursor:pointer;list-style:none}
+.diagnostics summary::-webkit-details-marker{display:none}
+.diagnostics summary::after{content:'+';float:right;color:#a6e37c;font-size:20px;line-height:1}
+.diagnostics[open] summary::after{content:'-'}
+.diag-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px 20px;margin-top:18px;padding-top:17px;border-top:1px solid #34444a}
+.diag-grid div{min-width:0}.diag-grid dt{color:#9bb0b3;font-size:11px}.diag-grid dd{margin:4px 0 0;font-size:14px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 footer{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:25px;color:#8fa2a5;font-size:11px}
-@media(max-width:760px){.top{grid-template-columns:1fr}.phase-grid{grid-template-columns:1fr}.phase{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.phase-head,.phase-power{grid-column:1}.metric-grid{grid-column:2;grid-row:1 / span 2;padding:0 0 0 14px;border-top:0;border-left:1px solid #34444a}.phase-power{margin-bottom:0}.connections{padding:18px}}
-@media(max-width:480px){.shell{padding-top:14px}.brand strong{font-size:13px}.sync{font-size:11px}h1{font-size:26px}.power{font-size:44px}.phase-power{font-size:26px}.phase{display:block}.phase-power{margin-bottom:13px}.metric-grid{padding:15px 0 0;border-left:0;border-top:1px solid #34444a}.totals strong{font-size:19px}}
+@media(max-width:760px){.top{grid-template-columns:1fr}.phase-grid{grid-template-columns:1fr}.phase{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.phase-head,.phase-power{grid-column:1}.metric-grid{grid-column:2;grid-row:1 / span 2;padding:0 0 0 14px;border-top:0;border-left:1px solid #34444a}.phase-power{margin-bottom:0}.connections{padding:18px}.diag-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.shell{padding-top:14px}.brand strong{font-size:13px}.sync{font-size:11px}h1{font-size:26px}.power{font-size:44px}.phase-power{font-size:26px}.phase{display:block}.phase-power{margin-bottom:13px}.metric-grid{padding:15px 0 0;border-left:0;border-top:1px solid #34444a}.totals strong{font-size:19px}.diag-grid{grid-template-columns:1fr 1fr}.history,.diagnostics{padding:17px}}
 </style>
 </head>
 <body>
@@ -80,15 +98,23 @@ footer{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin
 <h1>Shelly Pro 3EM Emulator</h1>
 <p class="sub">Netz&uuml;bersicht / ESPHome <span id="device-id"></span></p>
 <div class="top">
+  <div class="left-column">
   <section class="panel overview">
     <div class="label">Netzleistung</div>
     <div class="power"><span id="total-power">--</span><span id="total-power-unit" class="unit">W</span></div>
     <div id="direction" class="direction">Warte auf Messwerte</div>
+    <div id="source-age" class="source-age">Letzte Aktualisierung: --</div>
     <div class="totals">
       <div><div class="label">Bezug</div><strong id="import-energy">--</strong><span class="unit">kWh</span></div>
       <div><div class="label">Einspeisung</div><strong id="export-energy">--</strong><span class="unit">kWh</span></div>
     </div>
   </section>
+  <section class="panel history">
+    <div class="history-head"><h2>Netzleistung</h2><span>Bis zu 30 Minuten</span></div>
+    <canvas id="power-history" role="img" aria-label="Fl&uuml;chtiger Verlauf der Netzleistung"></canvas>
+    <div id="history-note" class="history-note">Verlauf beginnt mit dem &Ouml;ffnen dieser Seite.</div>
+  </section>
+  </div>
   <section class="panel connections">
     <h2>Verbindungen</h2>
     <div class="connection"><i id="ha-dot" class="dot"></i><div><strong>Home Assistant</strong><span id="ha-status">Pr&uuml;fe Verbindung</span></div></div>
@@ -107,6 +133,19 @@ footer{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin
     <article class="panel phase"><div class="phase-head"><span class="phase-letter">L3</span><strong>Phase 3</strong></div><div class="phase-power"><span id="p2">--</span> <small>W</small></div><div class="metric-grid"><div><span>Spannung</span><strong id="v2">--</strong></div><div><span>Strom</span><strong id="c2">--</strong></div><div><span>Leistungsfaktor</span><strong id="f2">--</strong></div><div><span>Bezug / Abgabe</span><strong id="e2">--</strong></div></div></article>
   </div>
 </section>
+<details class="panel diagnostics">
+  <summary>Diagnose</summary>
+  <dl class="diag-grid">
+    <div><dt>Laufzeit</dt><dd id="diag-uptime">--</dd></div>
+    <div><dt>Letzter Neustart</dt><dd id="diag-reset">--</dd></div>
+    <div><dt>MQTT-Statussendungen</dt><dd id="diag-status">--</dd></div>
+    <div><dt>MQTT-Benachrichtigungen</dt><dd id="diag-notify">--</dd></div>
+    <div><dt>Letzte Statussendung</dt><dd id="diag-last-status">--</dd></div>
+    <div><dt>MQTT-RPC / Steuerung</dt><dd id="diag-rpc">--</dd></div>
+    <div><dt>Messwertintervall</dt><dd id="diag-interval">--</dd></div>
+    <div><dt>Vorheriger Fehlerpunkt</dt><dd id="diag-crash">--</dd></div>
+  </dl>
+</details>
 </main>
 <footer><span>Nur Anzeige &middot; keine Messhardware</span><span id="updated">Noch nicht aktualisiert</span></footer>
 </div>
@@ -117,20 +156,65 @@ footer{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin
   function energy(value){return typeof value==='number'&&isFinite(value)?num(value/1000,1):'--'}
   function withUnit(value,digits,unit){return typeof value==='number'&&isFinite(value)?num(value,digits)+' '+unit:'--'}
   function dot(id,state){document.getElementById(id).className='dot '+state}
+  function age(value){return typeof value==='number'?(value<60?value+' s':Math.floor(value/60)+' min'):'--'}
+  function sample(id,value,limit,markStale){
+    var node=document.getElementById(id);
+    node.title=typeof value==='number'?'Letzte Aktualisierung vor '+age(value):'Kein Messwert empfangen';
+    node.classList.toggle('stale-value',!!markStale&&(value===null||value>limit));
+  }
+  var history=[],windowMs=30*60*1000,canvas=document.getElementById('power-history');
+  function drawHistory(){
+    var width=canvas.clientWidth,height=canvas.clientHeight,scale=window.devicePixelRatio||1;
+    if(width<1||height<1)return;
+    canvas.width=Math.round(width*scale);canvas.height=Math.round(height*scale);
+    var ctx=canvas.getContext('2d');ctx.scale(scale,scale);
+    var now=Date.now(),span=Math.min(windowMs,Math.max(60000,now-(history[0]?history[0].t:now)));
+    var start=now-span,values=history.filter(function(x){return x.p!==null}).map(function(x){return x.p});
+    var bound=Math.max(500,Math.ceil(Math.max.apply(null,values.map(Math.abs).concat([0]))/500)*500);
+    var left=5,right=width-5,top=8,bottom=height-18,mid=(top+bottom)/2,range=(bottom-top)/2;
+    ctx.lineWidth=1;ctx.strokeStyle='#46595e';ctx.beginPath();ctx.moveTo(left,mid);ctx.lineTo(right,mid);ctx.stroke();
+    ctx.fillStyle='#8fa2a5';ctx.font='11px system-ui';ctx.fillText('+'+num(bound/1000,1)+' kW',left,top+10);ctx.fillText('-'+num(bound/1000,1)+' kW',left,bottom);
+    ctx.strokeStyle='#a6e37c';ctx.lineWidth=2;ctx.lineJoin='round';ctx.beginPath();
+    var active=false,lastPoint=null;
+    history.forEach(function(point){
+      if(point.t<start||point.p===null){active=false;return}
+      var x=left+(point.t-start)/span*(right-left),y=mid-point.p/bound*range;
+      if(active)ctx.lineTo(x,y);else ctx.moveTo(x,y);
+      active=true;lastPoint={x:x,y:y};
+    });
+    ctx.stroke();
+    if(lastPoint){ctx.fillStyle='#a6e37c';ctx.beginPath();ctx.arc(lastPoint.x,lastPoint.y,3,0,Math.PI*2);ctx.fill()}
+  }
+  function addHistory(power){
+    var now=Date.now();
+    if(history.length&&now-history[history.length-1].t<4000)return;
+    history.push({t:now,p:typeof power==='number'&&isFinite(power)?power:null});
+    while(history.length&&history[0].t<now-windowMs)history.shift();
+    drawHistory();
+  }
+  window.addEventListener('resize',drawHistory);
   function render(data){
     put('model',data.model||'Emulator');
     put('device-id',data.id?' / '+data.id:'');
     var p=data.power;
+    var stale=!!data.measurement_stale;
     if(typeof p==='number'&&isFinite(p)){
       var kw=Math.abs(p)>=1000;
       put('total-power',num(kw?p/1000:p,kw?2:0));
       put('total-power-unit',kw?'kW':'W');
-      put('direction',p>0?'Bezug aus dem Netz':p<0?'Einspeisung ins Netz':'Kein Netzfluss');
+      put('direction',stale?'Messwert unveraendert / Aktualitaet pruefen':p>0?'Bezug aus dem Netz':p<0?'Einspeisung ins Netz':'Kein Netzfluss');
     }else{put('total-power','--');put('total-power-unit','W');put('direction','Messwert nicht verfuegbar')}
+    document.querySelector('.power').classList.toggle('stale',stale);
+    document.getElementById('direction').classList.toggle('stale',stale);
+    put('source-age','Letzte Leistungsaktualisierung: '+age(data.power_age_s));
+    document.getElementById('source-age').classList.toggle('stale',stale);
+    sample('total-power',data.power_age_s,data.stale_after_s,true);
     put('import-energy',energy(data.import_wh));
     put('export-energy',energy(data.export_wh));
-    dot('ha-dot',data.ha_connected?(data.measurements_ready?'ok':'warn'):'off');
-    put('ha-status',data.ha_connected?(data.measurements_ready?'Verbunden, Messwerte aktiv':'Verbunden, Messwerte fehlen'):'Nicht verbunden');
+    sample('import-energy',data.import_age_s,data.stale_after_s,false);
+    sample('export-energy',data.export_age_s,data.stale_after_s,false);
+    dot('ha-dot',data.ha_connected?(data.measurements_ready&&!stale?'ok':'warn'):'off');
+    put('ha-status',data.ha_connected?(data.measurements_ready?(stale?'Verbunden, Leistung laenger unveraendert':'Verbunden, Messwerte aktiv'):'Verbunden, Messwerte fehlen'):'Nicht verbunden');
     dot('mqtt-dot',!data.mqtt_enabled?'warn':data.mqtt_connected?'ok':'off');
     put('mqtt-status',!data.mqtt_enabled?'Nicht eingerichtet':data.mqtt_connected?'Verbunden mit '+(data.mqtt_server||'Broker'):'Getrennt von '+(data.mqtt_server||'Broker'));
     dot('wifi-dot',data.wifi_connected?'ok':'off');
@@ -145,36 +229,65 @@ footer{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin
       put('p'+i,num(x.power,0));put('v'+i,withUnit(x.voltage,1,'V'));
       put('c'+i,withUnit(x.current,2,'A'));put('f'+i,num(x.pf,2));
       put('e'+i,x.import_wh===null&&x.export_wh===null?'--':energy(x.import_wh)+' / '+energy(x.export_wh)+' kWh');
+      sample('p'+i,x.power_age_s,data.stale_after_s,true);
+      sample('v'+i,x.voltage_age_s,data.stale_after_s,true);
+      sample('c'+i,x.current_age_s,data.stale_after_s,true);
+      sample('f'+i,x.pf_age_s,data.stale_after_s,true);
+      document.getElementById('e'+i).title='Bezug: '+age(x.import_age_s)+' / Abgabe: '+age(x.export_age_s)+' seit letzter Aktualisierung';
     }
-    dot('sync-dot','ok');put('sync-text','Live');
+    var d=data.diagnostic||{};
+    put('diag-uptime',age(data.uptime_s));
+    put('diag-reset',data.reset_reason||'--');
+    put('diag-status',num(d.status_publish_successes,0)+' erfolgreich / '+num(d.status_publish_failures,0)+' Fehler');
+    put('diag-notify',num(d.notification_publish_successes,0)+' erfolgreich / '+num(d.notification_publish_failures,0)+' Fehler');
+    put('diag-last-status',d.last_status_publish_uptime_s?age(Math.max(0,data.uptime_s-d.last_status_publish_uptime_s))+' zuvor':'Noch keine');
+    put('diag-rpc',num(d.mqtt_rpc_received,0)+' / '+num(d.mqtt_control_received,0));
+    put('diag-interval',typeof d.publish_interval_ms==='number'?num(d.publish_interval_ms/1000,1)+' s':'--');
+    put('diag-crash',d.previous_method?(d.previous_method+' / '+(d.previous_stage||'?')):'Keiner');
+    addHistory(data.measurements_ready&&!stale?p:null);
+    put('history-note',history.length<2?'Verlauf beginnt mit dem Oeffnen dieser Seite.':'Verlauf nur in diesem Browser, nicht gespeichert.');
+    dot('sync-dot',stale?'warn':'ok');put('sync-text',stale?'Pruefen':'Live');
     put('updated','Aktualisiert '+new Date().toLocaleTimeString('de-AT'));
   }
-  function offline(){dot('sync-dot','off');put('sync-text','Offline');put('updated','Verbindung zum Geraet unterbrochen')}
+  function offline(){
+    dot('sync-dot','off');put('sync-text','Offline');put('updated','Verbindung zum Geraet unterbrochen');
+    document.querySelector('.power').classList.add('stale');
+    put('direction','Verbindung zum Emulator unterbrochen');
+    document.getElementById('direction').classList.add('stale');
+    addHistory(null);
+  }
   var loading=false;
+  var actionKey=null;
+  function action(path,actionName,body){
+    if(!actionKey)actionKey=window.prompt('Emulator-Aktionsschluessel eingeben:');
+    if(!actionKey)return Promise.reject(Error('Kein Schluessel eingegeben'));
+    var headers={'X-Emulator-Action':actionName,'X-Emulator-Key':actionKey};
+    if(body)headers['Content-Type']='application/json';
+    return fetch(path,{method:'POST',headers:headers,body:body?JSON.stringify(body):undefined})
+      .then(function(r){if(r.status===403){actionKey=null;throw Error('Schluessel abgelehnt')}if(!r.ok)throw Error('HTTP '+r.status);return r.json()});
+  }
   document.getElementById('pairing-button').addEventListener('click',function(){
     var button=this;
     button.disabled=true;
-    fetch('/emu/pairing',{method:'POST',headers:{'X-Emulator-Action':'pair'}})
-      .then(function(r){if(!r.ok)throw Error('HTTP '+r.status);return r.json()})
+    action('/emu/pairing','pair')
       .then(render)
-      .catch(function(){put('pairing-status','Start fehlgeschlagen');button.disabled=false});
+      .catch(function(e){put('pairing-status','Start fehlgeschlagen: '+e.message);button.disabled=false});
   });
   document.getElementById('reset-button').addEventListener('click',function(){
     if(window.prompt('MQTT-Verbindung wird geloescht. Zum Bestaetigen RESET eingeben:')!=='RESET')return;
     var button=this;
     button.disabled=true;
-    fetch('/emu/factory-reset',{method:'POST',headers:{'Content-Type':'application/json','X-Emulator-Action':'factory-reset'},body:JSON.stringify({confirm:'RESET'})})
-      .then(function(r){if(!r.ok)throw Error('HTTP '+r.status);return r.json()})
+    action('/emu/factory-reset','factory-reset',{confirm:'RESET'})
       .then(function(){put('reset-status','Zurueckgesetzt. Pairing wird gestartet.');poll()})
-      .catch(function(){put('reset-status','Reset fehlgeschlagen');button.disabled=false});
+      .catch(function(e){put('reset-status','Reset fehlgeschlagen: '+e.message);button.disabled=false});
   });
   document.getElementById('reboot-button').addEventListener('click',function(){
     if(!window.confirm('ESP32-Emulator jetzt neu starten?'))return;
     var button=this;
     button.disabled=true;
-    fetch('/emu/reboot',{method:'POST',headers:{'X-Emulator-Action':'reboot'}})
-      .then(function(r){if(!r.ok)throw Error('HTTP '+r.status);put('reboot-status','Neustart laeuft ...')})
-      .catch(function(){put('reboot-status','Neustart fehlgeschlagen');button.disabled=false});
+    action('/emu/reboot','reboot')
+      .then(function(){put('reboot-status','Neustart laeuft ...')})
+      .catch(function(e){put('reboot-status','Neustart fehlgeschlagen: '+e.message);button.disabled=false});
   });
   function poll(){
     if(loading)return;

@@ -37,6 +37,8 @@ class ShellyPro3EMEmu : public Component {
   void set_import_energy(sensor::Sensor *value) { import_energy_ = value; }
   void set_export_energy(sensor::Sensor *value) { export_energy_ = value; }
   void set_publish_interval(uint32_t interval_ms) { publish_interval_ms_ = interval_ms; }
+  void set_stale_after(uint32_t interval_ms) { stale_after_ms_ = interval_ms; }
+  void set_action_key(const std::string &key) { action_key_ = key; }
   void set_clock(time::RealTimeClock *clock) { clock_ = clock; }
   void set_voltage(size_t i, sensor::Sensor *value) { phases_[i].voltage = value; }
   void set_current(size_t i, sensor::Sensor *value) { phases_[i].current = value; }
@@ -63,6 +65,10 @@ class ShellyPro3EMEmu : public Component {
   };
 
   static bool valid_(sensor::Sensor *sensor);
+  uint32_t sample_age_ms_(sensor::Sensor *sensor) const;
+  bool sample_stale_(sensor::Sensor *sensor) const;
+  void watch_sensor_(sensor::Sensor *sensor, size_t index);
+  bool authorize_action_(httpd_req_t *request) const;
   static float value_(sensor::Sensor *sensor);
   static void copy_(char *target, size_t size, const String &value);
   String mac_() const;
@@ -116,6 +122,10 @@ class ShellyPro3EMEmu : public Component {
   uint32_t last_publish_{0};
   uint32_t last_energy_notification_{0};
   uint32_t publish_interval_ms_{1000};
+  uint32_t stale_after_ms_{300000};
+  std::string action_key_;
+  std::array<sensor::Sensor *, 21> watched_sensors_{};
+  std::array<std::atomic<uint32_t>, 21> sample_received_ms_{};
   uint32_t status_publish_successes_{0};
   uint32_t status_publish_failures_{0};
   uint32_t last_status_publish_uptime_s_{0};
